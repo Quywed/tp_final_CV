@@ -7,9 +7,17 @@ import pygame
 # Initialize pygame mixer
 pygame.mixer.init()
 
-# Load the sound
-sound_file = './piano/do.wav'
-do_sound = pygame.mixer.Sound(sound_file)
+# Load sound mappings
+sound_files = {
+    'a': './piano/do-stretched.wav',
+    'b': './piano/re-stretched.wav',
+    'c': './piano/mi-stretched.wav',
+    'd': './piano/fa-stretched.wav',
+    'e': './piano/sol-stretched.wav',
+}
+
+# Pre-load sound objects for efficiency
+sounds = {key: pygame.mixer.Sound(file) for key, file in sound_files.items()}
 
 # Load the model
 model_dict = pickle.load(open('./model.p', 'rb'))
@@ -27,8 +35,20 @@ hands = mp_hands.Hands(static_image_mode=True, min_detection_confidence=0.3)
 # Define the labels dictionary
 labels_dict = {0: 'A', 1: 'B', 2: 'C', 3: 'D', 4: 'E'}
 
-# Flag to track if the sound has been played
-sound_played = False
+# Flag to track if the sound has been played for each key
+sound_played = {key: False for key in sound_files.keys()}
+
+# Function to play piano sound
+def tocar_piano(predicted_character):
+    global sound_played  # Declare sound_played as global to retain state
+    character = predicted_character.lower()
+    if character in sounds:
+        if not sound_played[character]:
+            sounds[character].play()
+            sound_played[character] = True
+    for key in sound_played.keys():
+        if key != character:
+            sound_played[key] = False  # Reset the flag for other characters
 
 while True:
     data_aux = []
@@ -77,12 +97,7 @@ while True:
         predicted_character = labels_dict[int(prediction[0])]
         print("Predicted character : ", predicted_character)
 
-        # Play sound if predicted character is 'A' and not already played
-        if predicted_character.lower() == 'a' and not sound_played:
-            do_sound.play()
-            sound_played = True
-        elif predicted_character.lower() != 'a':
-            sound_played = False  # Reset the flag if the character changes
+        tocar_piano(predicted_character)  # Call the piano function
 
         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 0), 4)
         cv2.putText(frame, predicted_character, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1.3, (0, 0, 0), 3,
