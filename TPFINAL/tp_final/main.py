@@ -35,6 +35,12 @@ hands = mp_hands.Hands(static_image_mode=True, min_detection_confidence=0.3)
 # Define the labels dictionary
 labels_dict = {0: 'A', 1: 'B', 2: 'C', 3: 'D', 20: 'U', 5: 'F', 6: 'G', 7: 'H', 8: 'I', 9: 'J', 10: 'K', 11: 'L', 12: 'M',
                13: 'N', 14: 'O', 15: 'P', 16: 'Q', 17: 'R', 18: 'S', 19: 'T', 20: 'U', 21: 'V', 22: 'W', 23: 'X', 24: 'Y', 25: 'Z'}
+
+# Load the guitar icon image
+icon_image = cv2.imread('imagens/guitarra.png', cv2.IMREAD_UNCHANGED)
+icon_height, icon_width = 100, 50  # Resize dimensions for the icon
+icon_image = cv2.resize(icon_image, (icon_width, icon_height))
+
 # Flag to track if the sound has been played for each key
 sound_played = {key: False for key in sound_files.keys()}
 
@@ -61,6 +67,18 @@ while True:
 
     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
+    # Overlay the guitar icon on the frame
+    x_icon, y_icon = W - icon_width - 10, 10
+    overlay = frame[y_icon:y_icon + icon_height, x_icon:x_icon + icon_width]
+    alpha_icon = icon_image[:, :, 3] / 255.0
+    alpha_frame = 1.0 - alpha_icon
+
+    for c in range(3):
+        overlay[:, :, c] = (alpha_icon * icon_image[:, :, c] +
+                            alpha_frame * overlay[:, :, c])
+
+    frame[y_icon:y_icon + icon_height, x_icon:x_icon + icon_width] = overlay
+
     results = hands.process(frame_rgb)
     if results.multi_hand_landmarks:
         for hand_landmarks in results.multi_hand_landmarks:
@@ -77,8 +95,12 @@ while True:
             index_tip_x = int(index_tip.x * W)
             index_tip_y = int(index_tip.y * H)
 
-            print(f"Index Finger Tip Coordinates: x={index_tip_x}, y={index_tip_y}")
+            #print(f"Index Finger Tip Coordinates: x={index_tip_x}, y={index_tip_y}")
             cv2.circle(frame, (index_tip_x, index_tip_y), 10, (0, 255, 0), -1)
+
+            # Check if the index finger is hovering over the guitar icon
+            if (x_icon <= index_tip_x <= x_icon + icon_width and                    y_icon <= index_tip_y <= y_icon + icon_height):
+                print("Working")
 
             # Collect landmarks for prediction
             for i in range(len(hand_landmarks.landmark)):
@@ -103,7 +125,6 @@ while True:
     try:
         prediction = model.predict([np.asarray(data_aux)])
         predicted_character = labels_dict[int(prediction[0])]
-        #print("Predicted character:", predicted_character)
 
         # Play piano sound based on the prediction
         tocar_piano(predicted_character)
