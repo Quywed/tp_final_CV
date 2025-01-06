@@ -209,6 +209,10 @@ while True:
     y_ = []
 
     if hand_results.multi_hand_landmarks:
+        # Check if two hands are detected
+        if len(hand_results.multi_hand_landmarks) == 2:
+            cv2.putText(annotated_frame, "Two hands", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+
         for hand_landmarks in hand_results.multi_hand_landmarks:
             mp_drawing.draw_landmarks(
                 frame,
