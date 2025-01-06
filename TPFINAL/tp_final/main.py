@@ -6,6 +6,7 @@ import mediapipe as mp
 import numpy as np
 import pygame
 from ultralytics import YOLO
+import time
 
 # Initialize pygame mixer
 pygame.mixer.init()
@@ -50,6 +51,30 @@ sounds = {key: pygame.mixer.Sound(file) for key, file in sound_files.items()}
 sounds_low_pitch = {key: pygame.mixer.Sound(file) for key, file in sound_files_low_pitch.items()}
 sounds_high_pitch = {key: pygame.mixer.Sound(file) for key, file in sound_files_high_pitch.items()}
 sounds_bongo = {key: pygame.mixer.Sound(file) for key, file in sound_files_bongo.items()}
+
+metronome_sound = pygame.mixer.Sound('./metronome/click.wav')
+
+# Add metronome state variables
+metronome_active = False
+metronome_thread = None
+
+def play_metronome():
+    global metronome_active
+    while metronome_active:
+        metronome_sound.play()
+        time.sleep(0.6)  # 100 BPM = 0.6 seconds between beats
+
+def toggle_metronome():
+    global metronome_active, metronome_thread
+    
+    if not metronome_active:
+        metronome_active = True
+        metronome_thread = threading.Thread(target=play_metronome)
+        metronome_thread.start()
+    else:
+        metronome_active = False
+        if metronome_thread:
+            metronome_thread.join()
 
 # Add current instrument tracker
 current_instrument = "piano"  # Default instrument
@@ -209,9 +234,14 @@ while True:
     y_ = []
 
     if hand_results.multi_hand_landmarks:
-        # Check if two hands are detected
+        # Check for two hands
         if len(hand_results.multi_hand_landmarks) == 2:
-            cv2.putText(annotated_frame, "Two hands", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+            if not two_hands_previously_shown:
+                toggle_metronome()
+                two_hands_previously_shown = True
+
+        else:
+            two_hands_previously_shown = False
 
         for hand_landmarks in hand_results.multi_hand_landmarks:
             mp_drawing.draw_landmarks(
@@ -292,6 +322,9 @@ while True:
     cv2.imshow('Hand and Face Detection', annotated_frame)
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
+        metronome_active = False
+        if metronome_thread:
+            metronome_thread.join()
         break
 
 cap.release()
