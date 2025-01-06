@@ -325,6 +325,8 @@ while True:
             )
 
             cv2.putText(annotated_frame, f"Inclinacao da cabeca: {head_tilt_flag}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+            cv2.putText(annotated_frame, "?", (840, 70), cv2.FONT_HERSHEY_SIMPLEX, 3, (255, 255, 255), 2, cv2.LINE_AA)
+
 
     # Display current instrument
     cv2.putText(annotated_frame, f"Instrumento: {current_instrument}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
