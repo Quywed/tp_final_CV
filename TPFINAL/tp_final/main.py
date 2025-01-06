@@ -252,6 +252,17 @@ while True:
                 mp_drawing_styles.get_default_hand_connections_style()
             )
 
+                # Extract index finger tip coordinates
+            index_finger_tip = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
+            index_tip_x = int(index_finger_tip.x * W)
+            index_tip_y = int(index_finger_tip.y * H)
+
+            # Print the coordinates of the index finger tip
+            print(f"Index Finger Tip Coordinates: X={index_tip_x}, Y={index_tip_y}")
+
+            # Add optional visualization on the frame
+            cv2.circle(frame, (index_tip_x, index_tip_y), 10, (255, 0, 0), -1)
+
             for i in range(len(hand_landmarks.landmark)):
                 x = hand_landmarks.landmark[i].x
                 y = hand_landmarks.landmark[i].y
