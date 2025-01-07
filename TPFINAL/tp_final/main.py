@@ -252,13 +252,26 @@ while True:
                 mp_drawing_styles.get_default_hand_connections_style()
             )
 
-                # Extract index finger tip coordinates
+            # Coordinates for the question mark (you have this part already in the code)
+            question_mark_x = 840  # X position of the question mark
+            question_mark_y = 30   # Y position of the question mark
+            question_mark_width = 40  # Width of the "?" text
+            question_mark_height = 60  # Height of the "?" text
+
+            # Add a condition to check if the index finger is hovering over the question mark
             index_finger_tip = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
             index_tip_x = int(index_finger_tip.x * W)
             index_tip_y = int(index_finger_tip.y * H)
 
+            hover_image = cv2.imread('./img_utils/help.png')  # Replace with your image path
+            hover_image = cv2.resize(hover_image, (700, 500))  # Resize as needed
+
+            # Check if the index finger tip is near the question mark
+            if question_mark_x <= index_tip_x <= question_mark_x + question_mark_width and \
+            question_mark_y <= index_tip_y <= question_mark_y + question_mark_height:
+                cv2.imshow('Hover Image', hover_image)
             # Print the coordinates of the index finger tip
-            print(f"Index Finger Tip Coordinates: X={index_tip_x}, Y={index_tip_y}")
+            #print(f"Index Finger Tip Coordinates: X={index_tip_x}, Y={index_tip_y}")
 
             # Add optional visualization on the frame
             cv2.circle(frame, (index_tip_x, index_tip_y), 10, (255, 0, 0), -1)
@@ -338,7 +351,6 @@ while True:
         metronome_active = False
         if metronome_thread:
             metronome_thread.join()
-        break
-
+            
 cap.release()
 cv2.destroyAllWindows()
