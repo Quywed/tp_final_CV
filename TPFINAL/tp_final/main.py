@@ -7,6 +7,16 @@ import numpy as np
 import pygame
 from ultralytics import YOLO
 import time
+import tkinter as tk
+
+def show_textbox():
+    root = tk.Tk()
+    root.title("Backpack Detected")
+    label = tk.Label(root, text="Backpack detected!", font=("Helvetica", 16))
+    label.pack(pady=20)
+    entry = tk.Entry(root, width=40)
+    entry.pack(pady=10)
+    root.mainloop()
 
 # Initialize pygame mixer
 pygame.mixer.init()
@@ -143,6 +153,9 @@ def draw_detections(frame, results):
         # Get class ID and name
         cls = int(box.cls[0])
         name = results[0].names[cls]
+
+        if name == "backpack":
+            threading.Thread(target=show_textbox).start()  # Open textbox in a new thread
         
         if name not in ["bottle", "cell phone","potted plant","cup","backpack"]:
             continue
