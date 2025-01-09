@@ -46,11 +46,19 @@ sound_files_bongo = {
     'i': './bongo/lp-congas-quinto-muted-slap.wav',
 }
 
+sound_files_drums = {
+    'a': './drums/closed-hh.wav',
+    'b': './drums/bell.wav',
+    'c': './drums/kick.wav',
+    'd': './drums/rack-tom-1.wav',
+    'i': './drums/rack-tom-2.wav',
+}
 # Load sound objects for different pitches
 sounds = {key: pygame.mixer.Sound(file) for key, file in sound_files.items()}
 sounds_low_pitch = {key: pygame.mixer.Sound(file) for key, file in sound_files_low_pitch.items()}
 sounds_high_pitch = {key: pygame.mixer.Sound(file) for key, file in sound_files_high_pitch.items()}
 sounds_bongo = {key: pygame.mixer.Sound(file) for key, file in sound_files_bongo.items()}
+sounds_drums = {key: pygame.mixer.Sound(file) for key, file in sound_files_drums.items()}
 
 metronome_sound = pygame.mixer.Sound('./metronome/click.wav')
 
@@ -104,6 +112,8 @@ def tocar_instrumento(predicted_character, tilt):
 
     if current_instrument == "bongo":
         current_sounds = sounds_bongo
+    elif current_instrument == "drums":
+        current_sounds = sounds_drums
     else:  # piano
         if tilt == "cima":
             current_sounds = sounds_high_pitch
@@ -134,8 +144,7 @@ def draw_detections(frame, results):
         cls = int(box.cls[0])
         name = results[0].names[cls]
         
-        # Only process bottles and cell phones
-        if name not in ["bottle", "cell phone"]:
+        if name not in ["bottle", "cell phone","potted plant","cup","backpack"]:
             continue
             
         # Get coordinates and confidence
@@ -204,6 +213,7 @@ while True:
         # Update current instrument based on detected objects
         detected_bottle = False
         detected_phone = False
+        detected_drums = False
         
         for r in results:
             boxes = r.boxes
@@ -214,10 +224,15 @@ while True:
                     detected_bottle = True
                 elif name == "cell phone":
                     detected_phone = True
+                elif name == "potted plant":
+                    detected_drums = True
+                    
 
         # Switch instrument based on detection
         if detected_bottle:
             current_instrument = "bongo"
+        elif detected_drums:
+            current_instrument = "drums"
         elif detected_phone:
             current_instrument = "piano"
         
@@ -345,7 +360,7 @@ while True:
     cv2.putText(annotated_frame, f"Instrumento: {current_instrument}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
     # Display the frame with updated contents
-    cv2.imshow('Hand and Face Detection', annotated_frame)
+    cv2.imshow('Window 1 - Hand and Face Detection', annotated_frame)
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         metronome_active = False
