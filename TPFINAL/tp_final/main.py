@@ -7,23 +7,181 @@ import numpy as np
 import pygame
 from ultralytics import YOLO
 import time
+import os
 import tkinter as tk
+from tkinter import messagebox
 
-def show_textbox():
+def backpack_sounds():
+    def list_sound_files(directory):
+        """List all sound files in the given directory."""
+        return [f for f in os.listdir(directory) if f.lower().endswith(('.wav', '.mp3', '.ogg', '.flac'))]
+
+    def play_sound():
+        """Play the sound file entered in the textbox."""
+        file_name = entry.get().strip()
+        if not file_name:
+            messagebox.showerror("Error", "Please enter a file name.")
+            return
+        
+        file_path = os.path.join(current_directory, file_name)
+        if not os.path.isfile(file_path):
+            messagebox.showerror("Error", f"File '{file_name}' not found.")
+            return
+        
+        try:
+            pygame.mixer.init()
+            pygame.mixer.music.load(file_path)
+            pygame.mixer.music.set_volume(0.25)  # Set volume to 50%
+            pygame.mixer.music.play()
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not play sound: {str(e)}")
+
+    def stop_sound():
+        """Stop any currently playing sound."""
+        if pygame.mixer.music.get_busy():
+            pygame.mixer.music.stop()
+
+    def on_file_selected(event):
+        """Fill the entry with the selected file name."""
+        selection = listbox.curselection()
+        if selection:
+            entry.delete(0, tk.END)
+            entry.insert(0, listbox.get(selection))
+
+    def update_file_list():
+        """Update the listbox with sound files from the current directory."""
+        listbox.delete(0, tk.END)
+        files = list_sound_files(current_directory)
+        for file in files:
+            listbox.insert(tk.END, file)
+
+    current_directory = './custom_music'
+    if not os.path.exists(current_directory):
+        os.makedirs(current_directory)
+    pygame.init()
+
+    # Create the main window
     root = tk.Tk()
-    root.title("Backpack Detected")
-    label = tk.Label(root, text="Backpack detected!", font=("Helvetica", 16))
-    label.pack(pady=20)
-    entry = tk.Entry(root, width=40)
-    entry.pack(pady=10)
+    root.title("Sound Player")
+
+    # Create and pack the widgets
+    frame = tk.Frame(root)
+    frame.pack(pady=10)
+
+    entry = tk.Entry(frame, width=40)
+    entry.grid(row=0, column=0, padx=5)
+
+    play_button = tk.Button(frame, text="Play", command=play_sound)
+    play_button.grid(row=0, column=1, padx=5)
+
+    stop_button = tk.Button(frame, text="Stop", command=stop_sound)
+    stop_button.grid(row=0, column=2, padx=5)
+
+    listbox = tk.Listbox(root, width=60, height=15)
+    listbox.pack(pady=10)
+    listbox.bind("<<ListboxSelect>>", on_file_selected)
+
+    update_file_list()
+
+    # Run the Tkinter event loop
     root.mainloop()
 
+def play_metronome():
+    global metronome_active
+    while metronome_active:
+        metronome_sound.play()
+        time.sleep(0.6)  # 100 BPM = 0.6 seconds between beats
+
+def toggle_metronome():
+    global metronome_active, metronome_thread
+    
+    if not metronome_active:
+        metronome_active = True
+        metronome_thread = threading.Thread(target=play_metronome)
+        metronome_thread.start()
+    else:
+        metronome_active = False
+        if metronome_thread:
+            metronome_thread.join()
+
+def tocar_instrumento(predicted_character, tilt):
+    global sound_played
+    character = predicted_character.lower()
+
+    if current_instrument == "bongo":
+        current_sounds = sounds_bongo
+    elif current_instrument == "drums":
+        current_sounds = sounds_drums
+    else:  # piano
+        if tilt == "cima":
+            current_sounds = sounds_high_pitch
+        elif tilt == "baixo":
+            current_sounds = sounds_low_pitch
+        else:
+            current_sounds = sounds
+
+    if character in current_sounds:
+        if not sound_played[character]:
+            current_sounds[character].play()
+            sound_played[character] = True
+    
+    for key in sound_played.keys():
+        if key != character:
+            sound_played[key] = False
+
+def draw_detections(frame, results):
+    """Draw boxes only for bottles and cell phones"""
+    annotated_frame = frame.copy()
+    
+    if not results or not results[0].boxes:
+        return annotated_frame
+    
+    boxes = results[0].boxes
+    for box in boxes:
+        # Get class ID and name
+        cls = int(box.cls[0])
+        name = results[0].names[cls]
+
+        if name == "backpack":
+            threading.Thread(target=backpack_sounds).start()  # Open textbox in a new thread
+        
+        if name not in ["bottle", "cell phone","potted plant","cup","backpack"]:
+            continue
+            
+        # Get coordinates and confidence
+        x1, y1, x2, y2 = box.xyxy[0]
+        confidence = float(box.conf[0])
+        
+        # Convert coordinates to integers
+        x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+        
+        # Draw the box
+        cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        
+        # Add label with confidence
+        label = f"{name} {confidence:.2f}"
+        text_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
+        cv2.rectangle(annotated_frame, (x1, y1 - text_size[1] - 5), (x1 + text_size[0], y1), (0, 255, 0), -1)
+        cv2.putText(annotated_frame, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
+    
+    return annotated_frame
+
+def listen_for_input():
+    global run_model
+    while True:
+        user_input = input()
+        if user_input.lower() == 'obj':
+            run_model = True
+            print("MODELO de OBJETOS A CORRER")
+        elif user_input.lower() == 'stop':
+            run_model = False
+            print("MODELO de OBJETOS PAUSADO")
+            
 # Initialize pygame mixer
 pygame.mixer.init()
 print("Escreva 'obj' no terminal para iniciar a detecao de objetos, 'stop' para parar.")
 
-# [Previous sound file definitions remain the same...]
-# Define sound files for different pitches
+
 sound_files = {
     'a': './piano/do-stretched.wav',
     'b': './piano/re-stretched.wav',
@@ -76,23 +234,6 @@ metronome_sound = pygame.mixer.Sound('./metronome/click.wav')
 metronome_active = False
 metronome_thread = None
 
-def play_metronome():
-    global metronome_active
-    while metronome_active:
-        metronome_sound.play()
-        time.sleep(0.6)  # 100 BPM = 0.6 seconds between beats
-
-def toggle_metronome():
-    global metronome_active, metronome_thread
-    
-    if not metronome_active:
-        metronome_active = True
-        metronome_thread = threading.Thread(target=play_metronome)
-        metronome_thread.start()
-    else:
-        metronome_active = False
-        if metronome_thread:
-            metronome_thread.join()
 
 # Add current instrument tracker
 current_instrument = "piano"  # Default instrument
@@ -116,67 +257,7 @@ labels_dict = {0: 'A', 1: 'B', 2: 'C', 3: 'D', 20: 'U', 5: 'F', 6: 'G', 7: 'H', 
 
 sound_played = {key: False for key in sound_files.keys()}
 
-def tocar_instrumento(predicted_character, tilt):
-    global sound_played
-    character = predicted_character.lower()
 
-    if current_instrument == "bongo":
-        current_sounds = sounds_bongo
-    elif current_instrument == "drums":
-        current_sounds = sounds_drums
-    else:  # piano
-        if tilt == "cima":
-            current_sounds = sounds_high_pitch
-        elif tilt == "baixo":
-            current_sounds = sounds_low_pitch
-        else:
-            current_sounds = sounds
-
-    if character in current_sounds:
-        if not sound_played[character]:
-            current_sounds[character].play()
-            sound_played[character] = True
-    
-    for key in sound_played.keys():
-        if key != character:
-            sound_played[key] = False
-
-def draw_detections(frame, results):
-    """Draw boxes only for bottles and cell phones"""
-    annotated_frame = frame.copy()
-    
-    if not results or not results[0].boxes:
-        return annotated_frame
-    
-    boxes = results[0].boxes
-    for box in boxes:
-        # Get class ID and name
-        cls = int(box.cls[0])
-        name = results[0].names[cls]
-
-        if name == "backpack":
-            threading.Thread(target=show_textbox).start()  # Open textbox in a new thread
-        
-        if name not in ["bottle", "cell phone","potted plant","cup","backpack"]:
-            continue
-            
-        # Get coordinates and confidence
-        x1, y1, x2, y2 = box.xyxy[0]
-        confidence = float(box.conf[0])
-        
-        # Convert coordinates to integers
-        x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
-        
-        # Draw the box
-        cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-        
-        # Add label with confidence
-        label = f"{name} {confidence:.2f}"
-        text_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
-        cv2.rectangle(annotated_frame, (x1, y1 - text_size[1] - 5), (x1 + text_size[0], y1), (0, 255, 0), -1)
-        cv2.putText(annotated_frame, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
-    
-    return annotated_frame
 
 # YOLO model
 yolo_model = YOLO('object_models/yolo11s.pt')
@@ -190,16 +271,7 @@ if not cap.isOpened():
 
 run_model = False
 
-def listen_for_input():
-    global run_model
-    while True:
-        user_input = input()
-        if user_input.lower() == 'obj':
-            run_model = True
-            print("MODELO de OBJETOS A CORRER")
-        elif user_input.lower() == 'stop':
-            run_model = False
-            print("MODELO de OBJETOS PAUSADO")
+
 
 # Start a thread for listening for inputs
 input_thread = threading.Thread(target=listen_for_input)
