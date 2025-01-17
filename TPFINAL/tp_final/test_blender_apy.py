@@ -8,7 +8,6 @@ import pygame
 from ultralytics import YOLO
 import time
 import numpy as np
-import wave
 import socket
 import json
 import queue
