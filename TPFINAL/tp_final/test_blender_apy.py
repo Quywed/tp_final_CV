@@ -13,6 +13,9 @@ import json
 import queue
 import subprocess
 import os
+import random
+import tkinter as tk
+from tkinter import messagebox
 
 class BlenderAudioSender:
     def __init__(self, host='127.0.0.1', port=65432):
@@ -112,6 +115,128 @@ except Exception as e:
 pygame.mixer.init()
 print("Escreva 'obj' no terminal para iniciar a detecao de objetos, 'stop' para parar.")
 
+backpack_window_open = False
+def backpack_sounds():
+    global backpack_window_open
+
+    if backpack_window_open:
+        return  # If the window is already open, do nothing
+
+    backpack_window_open = True  # Set the flag to indicate the window is open
+
+    def list_sound_files(directory):
+        """List all sound files in the given directory."""
+        return [f for f in os.listdir(directory) if f.lower().endswith(('.wav', '.mp3', '.ogg', '.flac'))]
+
+    def play_sound():
+        """Play the sound file entered in the textbox."""
+        file_name = entry.get().strip()
+        if not file_name:
+            messagebox.showerror("Error", "Please enter a file name.")
+            return
+        
+        file_path = os.path.join(current_directory, file_name)
+        if not os.path.isfile(file_path):
+            messagebox.showerror("Error", f"File '{file_name}' not found.")
+            return
+        
+        try:
+            pygame.mixer.init()
+            pygame.mixer.music.load(file_path)
+            pygame.mixer.music.set_volume(0.25)  # Set volume to 50%
+            pygame.mixer.music.play()
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not play sound: {str(e)}")
+
+    def stop_sound():
+        """Stop any currently playing sound."""
+        if pygame.mixer.music.get_busy():
+            pygame.mixer.music.stop()
+
+    def on_file_selected(event):
+        """Fill the entry with the selected file name."""
+        selection = listbox.curselection()
+        if selection:
+            entry.delete(0, tk.END)
+            entry.insert(0, listbox.get(selection))
+
+    def update_file_list():
+        """Update the listbox with sound files from the current directory."""
+        listbox.delete(0, tk.END)
+        files = list_sound_files(current_directory)
+        for file in files:
+            listbox.insert(tk.END, file)
+
+    def on_close():
+        """Reset the flag when the window is closed."""
+        global backpack_window_open
+        backpack_window_open = False
+        root.destroy()
+
+    current_directory = './custom_music'
+    if not os.path.exists(current_directory):
+        os.makedirs(current_directory)
+    pygame.init()
+
+    # Create the main window
+    root = tk.Tk()
+    root.title("Sound Player")
+    root.protocol("WM_DELETE_WINDOW", on_close)  # Handle window close event
+
+    # Create and pack the widgets
+    frame = tk.Frame(root)
+    frame.pack(pady=10)
+
+    entry = tk.Entry(frame, width=40)
+    entry.grid(row=0, column=0, padx=5)
+
+    play_button = tk.Button(frame, text="Play", command=play_sound)
+    play_button.grid(row=0, column=1, padx=5)
+
+    stop_button = tk.Button(frame, text="Stop", command=stop_sound)
+    stop_button.grid(row=0, column=2, padx=5)
+
+    listbox = tk.Listbox(root, width=60, height=15)
+    listbox.pack(pady=10)
+    listbox.bind("<<ListboxSelect>>", on_file_selected)
+
+    update_file_list()
+
+    # Run the Tkinter event loop
+    root.mainloop()
+
+def play_random_music():
+    music_folder='./custom_music'
+
+    try:
+        music_files = [f for f in os.listdir(music_folder) if f.endswith('.mp3') or f.endswith('.wav')]
+        if not music_files:
+            print(f"No music files found in {music_folder}")
+            return
+        song = random.choice(music_files)
+        song_path = os.path.join(music_folder, song)
+        print(f"Playing random song: {song_path}")
+        pygame.mixer.music.load(song_path)
+        pygame.mixer.music.set_volume(0.15)  # Set volume to 15%
+        pygame.mixer.music.play()
+        time.sleep(2)
+    except Exception as e:
+        print(f"Error playing random music: {e}")
+
+def stop_all_sounds():
+
+    pygame.mixer.music.stop()  # Stop any random music playing
+    for sound in sounds.values():
+        sound.stop()  # Stop all instrument sounds
+    for sound in sounds_low_pitch.values():
+        sound.stop()
+    for sound in sounds_high_pitch.values():
+        sound.stop()
+    for sound in sounds_bongo.values():
+        sound.stop()
+    for sound in sounds_drums.values():
+        sound.stop()
+    print("All sounds stopped.")
 
 def wrap_sound(sound):
     return AudioCaptureMixer(sound)
@@ -174,7 +299,7 @@ def play_metronome():
     global metronome_active
     while metronome_active:
         metronome_sound.play()
-        time.sleep(0.6)  # 100 BPM = 0.6 seconds between beats
+        time.sleep(0.9)  # 100 BPM = 0.6 seconds between beats
 
 def toggle_metronome():
     global metronome_active, metronome_thread
@@ -214,6 +339,9 @@ def tocar_instrumento(predicted_character, tilt):
     global sound_played
     character = predicted_character.lower()
 
+    if predicted_character.lower() == 'u':
+        stop_all_sounds()
+
     if current_instrument == "bongo":
         current_sounds = sounds_bongo
     elif current_instrument == "drums":
@@ -247,6 +375,9 @@ def draw_detections(frame, results):
         # Get class ID and name
         cls = int(box.cls[0])
         name = results[0].names[cls]
+
+        if name == "backpack":
+            threading.Thread(target=backpack_sounds).start()  # Open textbox in a new thread
         
         if name not in ["bottle", "cell phone","potted plant","cup","backpack"]:
             continue
@@ -317,7 +448,8 @@ while True:
         # Update current instrument based on detected objects
         detected_bottle = False
         detected_phone = False
-        detected_drums = False
+        detected_plant = False
+        detected_cup = False
         
         for r in results:
             boxes = r.boxes
@@ -329,17 +461,21 @@ while True:
                 elif name == "cell phone":
                     detected_phone = True
                 elif name == "potted plant":
-                    detected_drums = True
+                    detected_plant = True
+                elif name == "cup":
+                    detected_cup = True
                     
 
         # Switch instrument based on detection
         if detected_bottle:
             current_instrument = "bongo"
-        elif detected_drums:
+        elif detected_plant:
             current_instrument = "drums"
         elif detected_phone:
             current_instrument = "piano"
-        
+        elif detected_cup:
+            play_random_music()
+
         # Draw only bottles and phones
         annotated_frame = draw_detections(frame, results)
     else:

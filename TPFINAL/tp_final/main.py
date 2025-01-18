@@ -7,11 +7,107 @@ import numpy as np
 import pygame
 from ultralytics import YOLO
 import time
+import numpy as np
+import socket
+import json
+import queue
+import subprocess
 import os
 import tkinter as tk
 from tkinter import messagebox
 
+class BlenderAudioSender:
+    def __init__(self, host='127.0.0.1', port=65432):
+        self.host = host
+        self.port = port
+        self.audio_queue = queue.Queue()
+        self.running = True
+        self.sock = None
+        self.connected = False
+        
+        # Start sender thread
+        self.sender_thread = threading.Thread(target=self._sender_loop)
+        self.sender_thread.daemon = True
+        self.sender_thread.start()
+    
+    def _connect(self):
+        try:
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.sock.bind((self.host, self.port))
+            self.sock.listen()
+            print(f"Waiting for Blender connection on {self.host}:{self.port}")
+            self.conn, addr = self.sock.accept()
+            print(f"Connected to Blender at {addr}")
+            self.connected = True
+        except Exception as e:
+            print(f"Connection error: {e}")
+            self.connected = False
+    
+    def _sender_loop(self):
+        self._connect()
+        while self.running:
+            try:
+                if not self.connected:
+                    self._connect()
+                    continue
+                
+                # Get audio data from queue
+                try:
+                    data = self.audio_queue.get(timeout=0.1)
+                    data_json = json.dumps(data)
+                    self.conn.sendall(data_json.encode() + b'\n')
+                except queue.Empty:
+                    # Send zero data when no sound is playing
+                    zero_data = [0.0] * 256
+                    data_json = json.dumps(zero_data)
+                    self.conn.sendall(data_json.encode() + b'\n')
+                    time.sleep(0.01)
+                
+            except Exception as e:
+                print(f"Sender error: {e}")
+                self.connected = False
+                time.sleep(0.1)
+    
+    def send_audio_data(self, audio_data):
+        """Add audio data to the queue for sending to Blender"""
+        self.audio_queue.put(audio_data)
+    
+    def cleanup(self):
+        """Clean up resources"""
+        self.running = False
+        if self.sock:
+            self.sock.close()
+
+class AudioCaptureMixer:
+    def __init__(self, original_sound):
+        self.original_sound = original_sound
+        self.sample_rate = 44100  # Standard sample rate
+        
+    def play(self):
+        self.original_sound.play()
+        
+        # Generate approximate waveform data
+        duration = 0.1  # Duration in seconds
+        samples = np.linspace(0, duration, 256)
+        waveform = np.sin(2 * np.pi * 440 * samples) * 0.5
+        
+        # Send to Blender
+        blender_sender.send_audio_data(waveform.tolist())
+
+# Initialize Blender sender before pygame
+blender_sender = BlenderAudioSender()
+
+backpack_window_open = False
+
 def backpack_sounds():
+    global backpack_window_open
+
+    if backpack_window_open:
+        return  # If the window is already open, do nothing
+
+    backpack_window_open = True  # Set the flag to indicate the window is open
+
     def list_sound_files(directory):
         """List all sound files in the given directory."""
         return [f for f in os.listdir(directory) if f.lower().endswith(('.wav', '.mp3', '.ogg', '.flac'))]
@@ -55,6 +151,12 @@ def backpack_sounds():
         for file in files:
             listbox.insert(tk.END, file)
 
+    def on_close():
+        """Reset the flag when the window is closed."""
+        global backpack_window_open
+        backpack_window_open = False
+        root.destroy()
+
     current_directory = './custom_music'
     if not os.path.exists(current_directory):
         os.makedirs(current_directory)
@@ -63,6 +165,7 @@ def backpack_sounds():
     # Create the main window
     root = tk.Tk()
     root.title("Sound Player")
+    root.protocol("WM_DELETE_WINDOW", on_close)  # Handle window close event
 
     # Create and pack the widgets
     frame = tk.Frame(root)
@@ -86,102 +189,30 @@ def backpack_sounds():
     # Run the Tkinter event loop
     root.mainloop()
 
-def play_metronome():
-    global metronome_active
-    while metronome_active:
-        metronome_sound.play()
-        time.sleep(0.6)  # 100 BPM = 0.6 seconds between beats
 
-def toggle_metronome():
-    global metronome_active, metronome_thread
-    
-    if not metronome_active:
-        metronome_active = True
-        metronome_thread = threading.Thread(target=play_metronome)
-        metronome_thread.start()
+
+# Launch visualizer executable
+try:
+    visualizer_path = "./visualizer.exe"  # Update this path to match your .exe location
+    if os.path.exists(visualizer_path):
+        subprocess.Popen([visualizer_path])
+        print("Visualizer launched successfully")
     else:
-        metronome_active = False
-        if metronome_thread:
-            metronome_thread.join()
+        print(f"Warning: Visualizer not found at {visualizer_path}")
+except Exception as e:
+    print(f"Error launching visualizer: {e}")
 
-def tocar_instrumento(predicted_character, tilt):
-    global sound_played
-    character = predicted_character.lower()
 
-    if current_instrument == "bongo":
-        current_sounds = sounds_bongo
-    elif current_instrument == "drums":
-        current_sounds = sounds_drums
-    else:  # piano
-        if tilt == "cima":
-            current_sounds = sounds_high_pitch
-        elif tilt == "baixo":
-            current_sounds = sounds_low_pitch
-        else:
-            current_sounds = sounds
-
-    if character in current_sounds:
-        if not sound_played[character]:
-            current_sounds[character].play()
-            sound_played[character] = True
-    
-    for key in sound_played.keys():
-        if key != character:
-            sound_played[key] = False
-
-def draw_detections(frame, results):
-    """Draw boxes only for bottles and cell phones"""
-    annotated_frame = frame.copy()
-    
-    if not results or not results[0].boxes:
-        return annotated_frame
-    
-    boxes = results[0].boxes
-    for box in boxes:
-        # Get class ID and name
-        cls = int(box.cls[0])
-        name = results[0].names[cls]
-
-        if name == "backpack":
-            threading.Thread(target=backpack_sounds).start()  # Open textbox in a new thread
-        
-        if name not in ["bottle", "cell phone","potted plant","cup","backpack"]:
-            continue
-            
-        # Get coordinates and confidence
-        x1, y1, x2, y2 = box.xyxy[0]
-        confidence = float(box.conf[0])
-        
-        # Convert coordinates to integers
-        x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
-        
-        # Draw the box
-        cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-        
-        # Add label with confidence
-        label = f"{name} {confidence:.2f}"
-        text_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
-        cv2.rectangle(annotated_frame, (x1, y1 - text_size[1] - 5), (x1 + text_size[0], y1), (0, 255, 0), -1)
-        cv2.putText(annotated_frame, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
-    
-    return annotated_frame
-
-def listen_for_input():
-    global run_model
-    while True:
-        user_input = input()
-        if user_input.lower() == 'obj':
-            run_model = True
-            print("MODELO de OBJETOS A CORRER")
-        elif user_input.lower() == 'stop':
-            run_model = False
-            print("MODELO de OBJETOS PAUSADO")
-            
 # Initialize pygame mixer
 pygame.mixer.init()
 print("Escreva 'obj' no terminal para iniciar a detecao de objetos, 'stop' para parar.")
 
 
+def wrap_sound(sound):
+    return AudioCaptureMixer(sound)
+
+# [Previous sound file definitions remain the same...]
+# Define sound files for different pitches
 sound_files = {
     'a': './piano/do-stretched.wav',
     'b': './piano/re-stretched.wav',
@@ -222,18 +253,35 @@ sound_files_drums = {
     'i': './drums/rack-tom-2.wav',
 }
 # Load sound objects for different pitches
-sounds = {key: pygame.mixer.Sound(file) for key, file in sound_files.items()}
-sounds_low_pitch = {key: pygame.mixer.Sound(file) for key, file in sound_files_low_pitch.items()}
-sounds_high_pitch = {key: pygame.mixer.Sound(file) for key, file in sound_files_high_pitch.items()}
-sounds_bongo = {key: pygame.mixer.Sound(file) for key, file in sound_files_bongo.items()}
-sounds_drums = {key: pygame.mixer.Sound(file) for key, file in sound_files_drums.items()}
+sounds = {key: wrap_sound(pygame.mixer.Sound(file)) for key, file in sound_files.items()}
+sounds_low_pitch = {key: wrap_sound(pygame.mixer.Sound(file)) for key, file in sound_files_low_pitch.items()}
+sounds_high_pitch = {key: wrap_sound(pygame.mixer.Sound(file)) for key, file in sound_files_high_pitch.items()}
+sounds_bongo = {key: wrap_sound(pygame.mixer.Sound(file)) for key, file in sound_files_bongo.items()}
+sounds_drums = {key: wrap_sound(pygame.mixer.Sound(file)) for key, file in sound_files_drums.items()}
 
-metronome_sound = pygame.mixer.Sound('./metronome/click.wav')
+metronome_sound = wrap_sound(pygame.mixer.Sound('./metronome/click.wav'))
 
 # Add metronome state variables
 metronome_active = False
 metronome_thread = None
 
+def play_metronome():
+    global metronome_active
+    while metronome_active:
+        metronome_sound.play()
+        time.sleep(0.6)  # 100 BPM = 0.6 seconds between beats
+
+def toggle_metronome():
+    global metronome_active, metronome_thread
+    
+    if not metronome_active:
+        metronome_active = True
+        metronome_thread = threading.Thread(target=play_metronome)
+        metronome_thread.start()
+    else:
+        metronome_active = False
+        if metronome_thread:
+            metronome_thread.join()
 
 # Add current instrument tracker
 current_instrument = "piano"  # Default instrument
@@ -257,7 +305,67 @@ labels_dict = {0: 'A', 1: 'B', 2: 'C', 3: 'D', 20: 'U', 5: 'F', 6: 'G', 7: 'H', 
 
 sound_played = {key: False for key in sound_files.keys()}
 
+def tocar_instrumento(predicted_character, tilt):
+    global sound_played
+    character = predicted_character.lower()
 
+    if current_instrument == "bongo":
+        current_sounds = sounds_bongo
+    elif current_instrument == "drums":
+        current_sounds = sounds_drums
+    else:  # piano
+        if tilt == "cima":
+            current_sounds = sounds_high_pitch
+        elif tilt == "baixo":
+            current_sounds = sounds_low_pitch
+        else:
+            current_sounds = sounds
+
+    if character in current_sounds:
+        if not sound_played[character]:
+            current_sounds[character].play()
+            sound_played[character] = True
+    
+    for key in sound_played.keys():
+        if key != character:
+            sound_played[key] = False
+
+def draw_detections(frame, results):
+    """Draw boxes only for bottles and cell phones"""
+    annotated_frame = frame.copy()
+    
+    if not results or not results[0].boxes:
+        return annotated_frame
+    
+    boxes = results[0].boxes
+    for box in boxes:
+        # Get class ID and name
+        cls = int(box.cls[0])
+        name = results[0].names[cls]
+        
+        if name == "backpack":
+            threading.Thread(target=backpack_sounds).start()  # Open textbox in a new thread
+        
+        if name not in ["bottle", "cell phone","potted plant","cup","backpack"]:
+            continue
+            
+        # Get coordinates and confidence
+        x1, y1, x2, y2 = box.xyxy[0]
+        confidence = float(box.conf[0])
+        
+        # Convert coordinates to integers
+        x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+        
+        # Draw the box
+        cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        
+        # Add label with confidence
+        label = f"{name} {confidence:.2f}"
+        text_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
+        cv2.rectangle(annotated_frame, (x1, y1 - text_size[1] - 5), (x1 + text_size[0], y1), (0, 255, 0), -1)
+        cv2.putText(annotated_frame, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
+    
+    return annotated_frame
 
 # YOLO model
 yolo_model = YOLO('object_models/yolo11s.pt')
@@ -271,7 +379,16 @@ if not cap.isOpened():
 
 run_model = False
 
-
+def listen_for_input():
+    global run_model
+    while True:
+        user_input = input()
+        if user_input.lower() == 'obj':
+            run_model = True
+            print("MODELO de OBJETOS A CORRER")
+        elif user_input.lower() == 'stop':
+            run_model = False
+            print("MODELO de OBJETOS PAUSADO")
 
 # Start a thread for listening for inputs
 input_thread = threading.Thread(target=listen_for_input)
@@ -452,5 +569,6 @@ while True:
         if metronome_thread:
             metronome_thread.join()
             
+blender_sender.cleanup()
 cap.release()
 cv2.destroyAllWindows()
