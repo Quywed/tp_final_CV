@@ -224,20 +224,8 @@ def play_random_music():
         print(f"Error playing random music: {e}")
 
 def stop_all_sounds():
-
-    pygame.mixer.music.stop()  # Stop any random music playing
-    for sound in sounds.values():
-        sound.stop()  # Stop all instrument sounds
-    for sound in sounds_low_pitch.values():
-        sound.stop()
-    for sound in sounds_high_pitch.values():
-        sound.stop()
-    for sound in sounds_bongo.values():
-        sound.stop()
-    for sound in sounds_drums.values():
-        sound.stop()
-    print("All sounds stopped.")
-
+    pygame.mixer.music.stop()
+    
 def wrap_sound(sound):
     return AudioCaptureMixer(sound)
 
