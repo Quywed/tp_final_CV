@@ -7,7 +7,6 @@ import numpy as np
 import pygame
 from ultralytics import YOLO
 import time
-import numpy as np
 import socket
 import json
 import queue
