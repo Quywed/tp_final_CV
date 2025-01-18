@@ -38,7 +38,7 @@ To have the best experience possible with this project, installing the IDE VSCod
 To do so, we recommend following the tutorial linked down below:
 
 <a href="https://www.youtube.com/watch?v=D2cwvpJSBX4" target="_blank"><img src="https://i.ytimg.com/vi/D2cwvpJSBX4/maxresdefault.jpg" 
-alt="IMAGE ALT TEXT HERE" width="981" height="552" border="10" /></a>
+alt="IMAGE ALT TEXT HERE" width="490" height="276" border="10" /></a>
 
 # 2º Step - Creating Virtual Environment
 
