@@ -157,7 +157,7 @@ Para parar a deteção de objectos, escreva **'stop'** e prima **Enter**.
   
 
 ### Notas de piano predefinidas
-| ASL Letter| Musical Note|
+| Letra ASL| Nota Musical |
 | ----------- | ----------- |
 | A | Do |
 | B | Re |
