@@ -207,7 +207,17 @@ TPFINAL/
 
 	├── main.py # Programa Principal
 
-	├── audio_visualizer.blend# Ficheiro Blender
+	├── audio_visualizer.blend # Ficheiro Blender
+
+	├── model.p # Ficheiro pickle de reconhecimento de ASL
+
+	├── img_utils / # Imagens de apoio ao projeto
+
+	├── object_models /  # YOLOv11
+
+	├── relatorioCV.docx # Ficheiro WORD do relatorio
+
+	├── relatorioCV.pdf # Ficheiro PDF do relatorio
 
 ``` 
 
