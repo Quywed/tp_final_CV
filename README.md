@@ -241,5 +241,5 @@ Livre para ser utilizado por qualquer pessoa, independentemente do contexto. Rea
 ## Desenvolvedores
 
 PROJETO DESENVOLVIDO POR PEDRO GONÇALVES e LUCAS MARTINS:
-Lucas Martins (a79294@ualg.pt): https://github.com/Quywed
-Pedro Gonçalves (79297@ualg.pt): https://github.com/PedroDanielG
+-Pedro Gonçalves (79297@ualg.pt): https://github.com/PedroDanielG
+-Lucas Martins (a79294@ualg.pt): https://github.com/Quywed
