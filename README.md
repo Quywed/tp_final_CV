@@ -97,7 +97,7 @@ Está quase pronto para colocar o projeto a funcionar! Mas antes disso, é preci
 - random - Utilizado para a seleção aleatória de uma música.
 
 - tkinter - Biblioteca nativa do Pyrhon para desenvolvimento de GUI's
-- 
+  
  ### 5º Passo - Instalação do Blender
 Para que o código interaja com o Blender, primeiro é necessário ter o Blender instalado. Recomendamos seguir o tutorial abaixo:
 
