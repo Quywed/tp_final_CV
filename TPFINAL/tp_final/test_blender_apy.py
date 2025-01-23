@@ -24,7 +24,6 @@ class BlenderAudioSender:
         self.sock = None
         self.connected = False
         
-        # Start sender thread
         self.sender_thread = threading.Thread(target=self._sender_loop)
         self.sender_thread.daemon = True
         self.sender_thread.start()
@@ -100,14 +99,12 @@ def backpack_sounds():
     if backpack_window_open:
         return  # If the window is already open, do nothing
 
-    backpack_window_open = True  # Set the flag to indicate the window is open
+    backpack_window_open = True  #FLAG DA JANELA DE BACKPACK
 
     def list_sound_files(directory):
-        """List all sound files in the given directory."""
         return [f for f in os.listdir(directory) if f.lower().endswith(('.wav', '.mp3', '.ogg', '.flac'))]
 
     def play_sound():
-        """Play the sound file entered in the textbox."""
         file_name = entry.get().strip()
         if not file_name:
             messagebox.showerror("Error", "Please enter a file name.")
@@ -121,32 +118,28 @@ def backpack_sounds():
         try:
             pygame.mixer.init()
             pygame.mixer.music.load(file_path)
-            pygame.mixer.music.set_volume(0.25)  # Set volume to 50%
+            pygame.mixer.music.set_volume(0.25)
             pygame.mixer.music.play()
         except Exception as e:
             messagebox.showerror("Error", f"Could not play sound: {str(e)}")
 
     def stop_sound():
-        """Stop any currently playing sound."""
         if pygame.mixer.music.get_busy():
             pygame.mixer.music.stop()
 
     def on_file_selected(event):
-        """Fill the entry with the selected file name."""
         selection = listbox.curselection()
         if selection:
             entry.delete(0, tk.END)
             entry.insert(0, listbox.get(selection))
 
     def update_file_list():
-        """Update the listbox with sound files from the current directory."""
         listbox.delete(0, tk.END)
         files = list_sound_files(current_directory)
         for file in files:
             listbox.insert(tk.END, file)
 
     def on_close():
-        """Reset the flag when the window is closed."""
         global backpack_window_open
         backpack_window_open = False
         root.destroy()
@@ -180,7 +173,6 @@ def backpack_sounds():
 
     update_file_list()
 
-    # Run the Tkinter event loop
     root.mainloop()
 
 def play_random_music():
@@ -440,7 +432,7 @@ while True:
                     detected_cup = True
                     
 
-        # Switch instrument based on detection
+        #TROCA DE INSTRUMENTOS
         if detected_bottle:
             current_instrument = "bongo"
         elif detected_plant:
@@ -454,14 +446,14 @@ while True:
     else:
         annotated_frame = frame
 
-    # Hand detection
+
     hand_results = hands.process(frame_rgb)
     data_aux = []
     x_ = []
     y_ = []
 
     if hand_results.multi_hand_landmarks:
-        # Check for two hands
+
         if len(hand_results.multi_hand_landmarks) == 2:
             if not two_hands_previously_shown:
                 toggle_metronome()
@@ -471,13 +463,7 @@ while True:
             two_hands_previously_shown = False
 
         for hand_landmarks in hand_results.multi_hand_landmarks:
-            mp_drawing.draw_landmarks(
-                frame,
-                hand_landmarks,
-                mp_hands.HAND_CONNECTIONS,
-                mp_drawing_styles.get_default_hand_landmarks_style(),
-                mp_drawing_styles.get_default_hand_connections_style()
-            )
+            mp_drawing.draw_landmarks(frame,hand_landmarks,mp_hands.HAND_CONNECTIONS, mp_drawing_styles.get_default_hand_landmarks_style(),mp_drawing_styles.get_default_hand_connections_style())
 
             #COORDENADAS DO PONTO DE INTERROGAÇÃO
             question_mark_x = 840  
@@ -562,11 +548,9 @@ while True:
             cv2.putText(annotated_frame, "?", (840, 70), cv2.FONT_HERSHEY_SIMPLEX, 3, (255, 255, 255), 2, cv2.LINE_AA)
 
 
-    # Display current instrument
     cv2.putText(annotated_frame, f"Instrumento: {current_instrument}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
-    # Display the frame with updated contents
-    cv2.imshow('Window 1 - Hand and Face Detection', annotated_frame)
+    cv2.imshow('Janela', annotated_frame)
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         metronome_active = False
