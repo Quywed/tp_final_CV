@@ -10,7 +10,6 @@ import time
 import socket
 import json
 import queue
-import subprocess
 import os
 import random
 import tkinter as tk
@@ -95,26 +94,6 @@ class AudioCaptureMixer:
         # Send to Blender
         blender_sender.send_audio_data(waveform.tolist())
 
-# Initialize Blender sender before pygame
-blender_sender = BlenderAudioSender()
-
-# Launch visualizer executable
-try:
-    visualizer_path = "./visualizer.exe"  # Update this path to match your .exe location
-    if os.path.exists(visualizer_path):
-        subprocess.Popen([visualizer_path])
-        print("Visualizer launched successfully")
-    else:
-        print(f"Warning: Visualizer not found at {visualizer_path}")
-except Exception as e:
-    print(f"Error launching visualizer: {e}")
-
-
-# Initialize pygame mixer
-pygame.mixer.init()
-print("Escreva 'obj' no terminal para iniciar a detecao de objetos, 'stop' para parar.")
-
-backpack_window_open = False
 def backpack_sounds():
     global backpack_window_open
 
@@ -216,7 +195,7 @@ def play_random_music():
         song_path = os.path.join(music_folder, song)
         print(f"Playing random song: {song_path}")
         pygame.mixer.music.load(song_path)
-        pygame.mixer.music.set_volume(0.15)  # Set volume to 15%
+        pygame.mixer.music.set_volume(0.15)
         pygame.mixer.music.play()
         time.sleep(2)
     except Exception as e:
@@ -227,60 +206,6 @@ def stop_all_sounds():
     
 def wrap_sound(sound):
     return AudioCaptureMixer(sound)
-
-# [Previous sound file definitions remain the same...]
-# Define sound files for different pitches
-sound_files = {
-    'a': './piano/do-stretched.wav',
-    'b': './piano/re-stretched.wav',
-    'c': './piano/mi-stretched.wav',
-    'd': './piano/fa-stretched.wav',
-    'i': './piano/sol-stretched.wav',
-}
-
-sound_files_low_pitch = {
-    'a': './piano/low-pitch/do-stretched_low_pitch.mp3',
-    'b': './piano/low-pitch/re-stretched_low_pitch.mp3',
-    'c': './piano/low-pitch/mi-stretched_low_pitch.mp3',
-    'd': './piano/low-pitch/fa-stretched_low_pitch.mp3',
-    'i': './piano/low-pitch/sol-stretched_low_pitch.mp3',
-}
-
-sound_files_high_pitch = {
-    'a': './piano/high-pitch/do-stretched_high_pitch.mp3',
-    'b': './piano/high-pitch/re-stretched_high_pitch.mp3',
-    'c': './piano/high-pitch/mi-stretched_high_pitch.mp3',
-    'd': './piano/high-pitch/fa-stretched_high_pitch.mp3',
-    'i': './piano/high-pitch/sol-stretched_high_pitch.mp3',
-}
-
-sound_files_bongo = {
-    'a': './bongo/congas-conga-open.wav',
-    'b': './bongo/lp-bongos-hi.wav',
-    'c': './bongo/lp-bongos-hi-slap.wav',
-    'd': './bongo/lp-bongos-low.wav',
-    'i': './bongo/lp-congas-quinto-muted-slap.wav',
-}
-
-sound_files_drums = {
-    'a': './drums/closed-hh.wav',
-    'b': './drums/bell.wav',
-    'c': './drums/kick.wav',
-    'd': './drums/rack-tom-1.wav',
-    'i': './drums/rack-tom-2.wav',
-}
-# Load sound objects for different pitches
-sounds = {key: wrap_sound(pygame.mixer.Sound(file)) for key, file in sound_files.items()}
-sounds_low_pitch = {key: wrap_sound(pygame.mixer.Sound(file)) for key, file in sound_files_low_pitch.items()}
-sounds_high_pitch = {key: wrap_sound(pygame.mixer.Sound(file)) for key, file in sound_files_high_pitch.items()}
-sounds_bongo = {key: wrap_sound(pygame.mixer.Sound(file)) for key, file in sound_files_bongo.items()}
-sounds_drums = {key: wrap_sound(pygame.mixer.Sound(file)) for key, file in sound_files_drums.items()}
-
-metronome_sound = wrap_sound(pygame.mixer.Sound('./metronome/click.wav'))
-
-# Add metronome state variables
-metronome_active = False
-metronome_thread = None
 
 def play_metronome():
     global metronome_active
@@ -299,28 +224,6 @@ def toggle_metronome():
         metronome_active = False
         if metronome_thread:
             metronome_thread.join()
-
-# Add current instrument tracker
-current_instrument = "piano"  # Default instrument
-
-# [Previous model loading and initialization code remains the same...]
-# Load ASL model
-model_dict = pickle.load(open('./model.p', 'rb'))
-model = model_dict['model']
-
-# Initialize MediaPipe Hands and Face Mesh
-mp_hands = mp.solutions.hands
-mp_face_mesh = mp.solutions.face_mesh
-mp_drawing = mp.solutions.drawing_utils
-mp_drawing_styles = mp.solutions.drawing_styles
-
-hands = mp_hands.Hands(static_image_mode=True, min_detection_confidence=0.3)
-face_mesh = mp_face_mesh.FaceMesh(static_image_mode=False, max_num_faces=1, refine_landmarks=True,min_detection_confidence=0.5, min_tracking_confidence=0.5)
-
-labels_dict = {0: 'A', 1: 'B', 2: 'C', 3: 'D', 20: 'U', 5: 'F', 6: 'G', 7: 'H', 8: 'I', 9: 'J', 10: 'K', 11: 'L', 12: 'M',
-               13: 'N', 14: 'O', 15: 'P', 16: 'Q', 17: 'R', 18: 'S', 19: 'T', 20: 'U', 21: 'V', 22: 'W', 23: 'X', 24: 'Y', 25: 'Z'}
-
-sound_played = {key: False for key in sound_files.keys()}
 
 def tocar_instrumento(predicted_character, tilt):
     global sound_played
@@ -387,18 +290,6 @@ def draw_detections(frame, results):
     
     return annotated_frame
 
-# YOLO model
-yolo_model = YOLO('object_models/yolo11s.pt')
-
-# Open video capture
-cap = cv2.VideoCapture(0)
-
-if not cap.isOpened():
-    print("Error: Could not open webcam.")
-    exit()
-
-run_model = False
-
 def listen_for_input():
     global run_model
     while True:
@@ -410,7 +301,104 @@ def listen_for_input():
             run_model = False
             print("MODELO de OBJETOS PAUSADO")
 
-# Start a thread for listening for inputs
+#INSTANCIAR OBJETO CONEXAO BLENDER
+blender_sender = BlenderAudioSender()
+
+#PYGAME INITIALIZER
+pygame.mixer.init()
+print("Escreva 'obj' no terminal para iniciar a detecao de objetos, 'stop' para parar.")
+
+backpack_window_open = False
+
+#DICIONARIO FICHEIRO DE SOM
+sound_files = {
+    'a': './piano/do-stretched.wav',
+    'b': './piano/re-stretched.wav',
+    'c': './piano/mi-stretched.wav',
+    'd': './piano/fa-stretched.wav',
+    'i': './piano/sol-stretched.wav',
+}
+
+sound_files_low_pitch = {
+    'a': './piano/low-pitch/do-stretched_low_pitch.mp3',
+    'b': './piano/low-pitch/re-stretched_low_pitch.mp3',
+    'c': './piano/low-pitch/mi-stretched_low_pitch.mp3',
+    'd': './piano/low-pitch/fa-stretched_low_pitch.mp3',
+    'i': './piano/low-pitch/sol-stretched_low_pitch.mp3',
+}
+
+sound_files_high_pitch = {
+    'a': './piano/high-pitch/do-stretched_high_pitch.mp3',
+    'b': './piano/high-pitch/re-stretched_high_pitch.mp3',
+    'c': './piano/high-pitch/mi-stretched_high_pitch.mp3',
+    'd': './piano/high-pitch/fa-stretched_high_pitch.mp3',
+    'i': './piano/high-pitch/sol-stretched_high_pitch.mp3',
+}
+
+sound_files_bongo = {
+    'a': './bongo/congas-conga-open.wav',
+    'b': './bongo/lp-bongos-hi.wav',
+    'c': './bongo/lp-bongos-hi-slap.wav',
+    'd': './bongo/lp-bongos-low.wav',
+    'i': './bongo/lp-congas-quinto-muted-slap.wav',
+}
+
+sound_files_drums = {
+    'a': './drums/closed-hh.wav',
+    'b': './drums/bell.wav',
+    'c': './drums/kick.wav',
+    'd': './drums/rack-tom-1.wav',
+    'i': './drums/rack-tom-2.wav',
+}
+
+# Load sound objects for different pitches
+sounds = {key: wrap_sound(pygame.mixer.Sound(file)) for key, file in sound_files.items()}
+sounds_low_pitch = {key: wrap_sound(pygame.mixer.Sound(file)) for key, file in sound_files_low_pitch.items()}
+sounds_high_pitch = {key: wrap_sound(pygame.mixer.Sound(file)) for key, file in sound_files_high_pitch.items()}
+sounds_bongo = {key: wrap_sound(pygame.mixer.Sound(file)) for key, file in sound_files_bongo.items()}
+sounds_drums = {key: wrap_sound(pygame.mixer.Sound(file)) for key, file in sound_files_drums.items()}
+
+metronome_sound = wrap_sound(pygame.mixer.Sound('./metronome/click.wav'))
+
+#FLAGS DE METRONOMO
+metronome_active = False
+metronome_thread = None
+
+#INSTRUMENTO DEFAULT
+current_instrument = "piano" 
+
+#INICIALIZAR O MODELO DE ASL
+model_dict = pickle.load(open('./model.p', 'rb'))
+model = model_dict['model']
+
+#INICIALIZAR O MEDIAPIPE
+mp_hands = mp.solutions.hands
+mp_face_mesh = mp.solutions.face_mesh
+mp_drawing = mp.solutions.drawing_utils
+mp_drawing_styles = mp.solutions.drawing_styles
+
+hands = mp_hands.Hands(static_image_mode=True, min_detection_confidence=0.3)
+face_mesh = mp_face_mesh.FaceMesh(static_image_mode=False, max_num_faces=1, refine_landmarks=True,min_detection_confidence=0.5, min_tracking_confidence=0.5)
+
+labels_dict = {0: 'A', 1: 'B', 2: 'C', 3: 'D', 20: 'U', 5: 'F', 6: 'G', 7: 'H', 8: 'I', 9: 'J', 10: 'K', 11: 'L', 12: 'M',
+               13: 'N', 14: 'O', 15: 'P', 16: 'Q', 17: 'R', 18: 'S', 19: 'T', 20: 'U', 21: 'V', 22: 'W', 23: 'X', 24: 'Y', 25: 'Z'}
+
+sound_played = {key: False for key in sound_files.keys()}
+
+# YOLO model
+yolo_model = YOLO('object_models/yolo11s.pt')
+
+#ABRIR CAMERA
+cap = cv2.VideoCapture(0)
+
+if not cap.isOpened():
+    print("Error: Could not open webcam.")
+    exit()
+
+run_model = False
+
+
+#THREAD DO INPUT | MODELO DE OBJETOS
 input_thread = threading.Thread(target=listen_for_input)
 input_thread.start()
 
@@ -423,7 +411,6 @@ while True:
         print("Error: Failed to capture image.")
         break
 
-    # Resize the frame to fit the screen size
     frame = cv2.resize(frame, (screen_width, screen_height))
     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     H, W, _ = frame.shape
@@ -463,12 +450,10 @@ while True:
         elif detected_cup:
             play_random_music()
 
-        # Draw only bottles and phones
         annotated_frame = draw_detections(frame, results)
     else:
         annotated_frame = frame
 
-    # [Rest of the code remains the same until the hand gesture detection part...]
     # Hand detection
     hand_results = hands.process(frame_rgb)
     data_aux = []
@@ -494,28 +479,22 @@ while True:
                 mp_drawing_styles.get_default_hand_connections_style()
             )
 
-            # Coordinates for the question mark (you have this part already in the code)
-            question_mark_x = 840  # X position of the question mark
-            question_mark_y = 30   # Y position of the question mark
-            question_mark_width = 40  # Width of the "?" text
-            question_mark_height = 60  # Height of the "?" text
+            #COORDENADAS DO PONTO DE INTERROGAÇÃO
+            question_mark_x = 840  
+            question_mark_y = 30
+            question_mark_width = 40  
+            question_mark_height = 60
 
-            # Add a condition to check if the index finger is hovering over the question mark
             index_finger_tip = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
             index_tip_x = int(index_finger_tip.x * W)
             index_tip_y = int(index_finger_tip.y * H)
 
-            hover_image = cv2.imread('./img_utils/help.png')  # Replace with your image path
-            hover_image = cv2.resize(hover_image, (700, 500))  # Resize as needed
+            hover_image = cv2.imread('./img_utils/help.png')
+            hover_image = cv2.resize(hover_image, (700, 500))
 
-            # Check if the index finger tip is near the question mark
-            if question_mark_x <= index_tip_x <= question_mark_x + question_mark_width and \
-            question_mark_y <= index_tip_y <= question_mark_y + question_mark_height:
+            if question_mark_x <= index_tip_x <= question_mark_x + question_mark_width and question_mark_y <= index_tip_y <= question_mark_y + question_mark_height:
                 cv2.imshow('Hover Image', hover_image)
-            # Print the coordinates of the index finger tip
-            #print(f"Index Finger Tip Coordinates: X={index_tip_x}, Y={index_tip_y}")
 
-            # Add optional visualization on the frame
             cv2.circle(frame, (index_tip_x, index_tip_y), 10, (255, 0, 0), -1)
 
             for i in range(len(hand_landmarks.landmark)):
@@ -540,12 +519,12 @@ while True:
             prediction = model.predict([np.asarray(data_aux)])
             predicted_character = labels_dict[int(prediction[0])]
             tocar_instrumento(predicted_character, head_tilt_flag)
-            cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), (0, 0, 0), 4)
+
             cv2.putText(annotated_frame, predicted_character, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1.3, (0, 0, 0), 3, cv2.LINE_AA)
         except Exception as e:
             pass
 
-    # Face mesh detection
+    #RECONHECIMENTO DA FACE
     face_results = face_mesh.process(frame_rgb)
     if face_results.multi_face_landmarks:
         for face_landmarks in face_results.multi_face_landmarks:
